@@ -256,3 +256,9 @@
 				DebugCondition
 				VersionCondition
 			StaticIfCondition
+	TemplateParameter
+		TemplateTypeParameter
+			TemplateThisParameter
+		TemplateValueParameter
+		TemplateAliasParameter
+		TemplateTupleParameter
