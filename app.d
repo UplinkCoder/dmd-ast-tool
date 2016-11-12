@@ -112,11 +112,11 @@ public :
 
 struct Entry
 {
-    uint level;
+    uint level; 
     string nodeName;
-    uint idx;
+    uint idx; ///starts at 1
     // populated after populate was called
-    uint parentIdx;
+    uint parentIdx; /// 1 based indexing
     uint numberOfChildren;
 
     uint enumIdx;
@@ -137,11 +137,10 @@ uint[5] importantParentIdxs;
     
 
 }*/
-
-void main()
+Entry[] parseDmdClassList(string input) pure
 {
-    string ch_txt = readText("ch.txt");
-    auto lines = ch_txt.splitLines;
+    Entry[] _entries;
+    auto lines = input.splitLines;
 
     foreach (i, line; lines)
     {
@@ -152,13 +151,19 @@ void main()
         auto nameString = line.split(' ')[0];
 
         if (nameString.length)
-            entries ~= Entry(level, nameString, cast(uint) i);
+            _entries ~= Entry(level, nameString, cast(uint) i);
     }
 
-    writeln("The DMD class hierachy has ", entries.length, " members");
+    return _entries;
+}
 
-    foreach (i; 0 .. entries.length)
-        populate(cast(uint) i);
+void main()
+{
+    string ch_txt = readText("ch.txt");
+    entries = parseDmdClassList(ch_txt);
+    populate(&entries);
+
+    writeln("The DMD class hierachy has ", entries.length, " members");
 
     uint typeCount[6];
     foreach (i, entry; entries)
@@ -216,24 +221,27 @@ string genTypeStringVisitor()
     return result;
 }
 
-void populate(uint entryIdx)
+void populate(Entry[]* _entries)
 {
-    auto entryLevel = entries[entryIdx].level;
-    if (entryLevel > 1)
-        foreach_reverse (i, entry; entries[0 .. entryIdx])
-        {
-            if (entryLevel > entry.level)
+    const Entry[] c_entries = *_entries;
+    foreach (entryIdx; 0 .. _entries.length)
+    {
+        auto entryLevel = c_entries[entryIdx].level;
+        if (entryLevel > 1)
+            foreach_reverse (i, entry; c_entries[0 .. entryIdx])
             {
-                entries[entryIdx].parentIdx = cast(uint) i + 1;
-                ++entries[i].numberOfChildren;
-                return;
+                if (entryLevel > entry.level)
+                {
+                    (*_entries)[entryIdx].parentIdx = cast(uint) i + 1;
+                    ++(*_entries)[i].numberOfChildren;
+                    break;
+                }
             }
-        }
-
+    }
     return;
 }
 
-uint countTabs(ref string line)
+uint countTabs(const string line) pure
 {
     int numTabs;
     while (line.length && line[numTabs] == '\t')
