@@ -6,7 +6,7 @@ import std.file;
 import std.math;
 
 string visitor_boilerplate = `
-module ddmd.asttypename;
+odule ddmd.asttypename;
 
 import ddmd.attrib;
 import ddmd.aliasthis;
@@ -32,11 +32,29 @@ import ddmd.mtype;
 import ddmd.typinf;
 import ddmd.identifier;
 import ddmd.init;
+import ddmd.globals;
 import ddmd.doc;
 import ddmd.root.rootobject;
 import ddmd.statement;
 import ddmd.staticassert;
 import ddmd.visitor;
+
+
+string astTypeName(RootObject node)
+{
+    switch(node.dyncast())
+    {
+        case DYNCAST_IDENTIFIER:
+            return astTypeName(cast(Identifier)node);
+        case DYNCAST_DSYMBOL:
+            return astTypeName(cast(Dsymbol)node);
+        case DYNCAST_TYPE:
+            return astTypeName(cast(Type)node);
+        case DYNCAST_EXPRESSION:
+            return astTypeName(cast(Expression)node);
+	    default : assert(0, "don't know this DYNCAST");
+    }
+}
 
 string astTypeName(Dsymbol node)
 {
@@ -72,6 +90,13 @@ string astTypeName(Initializer node)
 }
 
 string astTypeName(Condition node)
+{
+    scope tsv = new AstTypeNameVisitor;
+    node.accept(tsv);
+    return tsv.typeName;
+}
+
+string astTypeName(TemplateParameter node)
 {
     scope tsv = new AstTypeNameVisitor;
     node.accept(tsv);
