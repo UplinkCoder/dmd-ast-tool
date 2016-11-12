@@ -115,8 +115,8 @@ struct Entry
 {
     string nodeName;
     uint level;
-    uint idx; ///starts at 1
-    // populated after populate was called
+    uint idx;
+
     uint parentIdx; /// 1 based indexing
     uint numberOfChildren;
 
@@ -145,6 +145,21 @@ Entry[] parseDmdClassList(string input) pure
             _entries ~= Entry(nameString, level, cast(uint) i);
     }
 
+    foreach (entryIdx; 0 .. _entries.length)
+    {
+        auto entryLevel = _entries[entryIdx].level;
+        if (entryLevel > 1)
+            foreach_reverse (i, entry; _entries[0 .. entryIdx])
+            {
+                if (entryLevel > entry.level)
+                {
+                    _entries[entryIdx].parentIdx = cast(uint) i + 1;
+                    ++_entries[i].numberOfChildren;
+                    break;
+                }
+            }
+    }
+
     return _entries;
 }
 
@@ -156,8 +171,6 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
 
     uint lastTry;
     uint currentLevel = 1;
-    uint colateCount;
-    uint oldCoalateCount = 1;
 
     for (;;)
     {
@@ -174,7 +187,7 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
         if (lastTry == allClasses.length)
         {
             if (currentLevel++ < 10)
-                lastTry = 1;
+                lastTry = 0;
             else
                 break;
         }
@@ -186,12 +199,13 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
 void main()
 {
     auto allClasses = gatherClasses();
-    writeln(rod(allClasses).map!(c => c.className));
-    writeln(coalateClasses(allClasses).map!(c => c.nodeName));
+    printVisitors();
+    writeln(allClasses.length);
+
+    //   writeln(rod(allClasses).map!(c => c.className));
+    writeln(coalateClasses(allClasses).length /*.map!(c => c.nodeName)*/ );
     string ch_txt = readText("ch.txt");
     entries = parseDmdClassList(ch_txt);
-    populate(&entries);
-    //printVisitors();
     writeln("The DMD class hierachy has ", entries.length, " members");
 
     uint typeCount[6];
@@ -250,24 +264,43 @@ string genTypeStringVisitor()
     return result;
 }
 
-void populate(Entry[]* _entries)
+struct BracePosition
 {
-    const Entry[] c_entries = *_entries;
-    foreach (entryIdx; 0 .. _entries.length)
+    uint beginPos;
+    uint endPos;
+}
+
+BracePosition nextBraceAndMatchingEndBrace(const string text, const uint startPos) pure @safe nothrow
+{
+    uint beginPos = startPos;
+    // search for first opening brace starting at startPos;
+    while (beginPos < text.length && text[beginPos++] != '{')
     {
-        auto entryLevel = c_entries[entryIdx].level;
-        if (entryLevel > 1)
-            foreach_reverse (i, entry; c_entries[0 .. entryIdx])
-            {
-                if (entryLevel > entry.level)
-                {
-                    (*_entries)[entryIdx].parentIdx = cast(uint) i + 1;
-                    ++(*_entries)[i].numberOfChildren;
-                    break;
-                }
-            }
     }
-    return;
+
+    // if we are not at the end, meaning a brace has been found
+    if (beginPos != text.length)
+    {
+        uint endPos = beginPos;
+        uint balanceCounter = 1;
+        while (endPos < text.length && balanceCounter)
+        {
+            char c = text[endPos++];
+
+            if (c == '{')
+                balanceCounter++;
+            if (c == '}')
+                balanceCounter--;
+
+        }
+        // we found a balanced pair of braces
+        if (!balanceCounter)
+        {
+            return BracePosition(beginPos - 1, endPos - 1);
+        }
+    }
+
+    return BracePosition.init;
 }
 
 uint countTabs(const string line) pure
@@ -286,6 +319,8 @@ struct ASTClass
     string parentName;
 
     string fileName;
+    uint startDefinitionPos;
+    uint endDefinitionPos;
 }
 
 ASTClass[] gatherClasses()
@@ -296,10 +331,13 @@ ASTClass[] gatherClasses()
     ASTClass[] classes;
     foreach (string filename; dirEntries("src/", "*.d", SpanMode.shallow))
     {
-        foreach (m; matchAll(readText(filename), r).filter!(
-                m => m.captures[2] != "Visitor" && m.captures[2] != "StoppableVisitor"))
+        auto content = readText(filename);
+        foreach (m; matchAll(content, r).filter!(m => m.captures[2] != "Visitor"
+                && m.captures[2] != "StoppableVisitor"))
         {
-            classes ~= ASTClass(m.captures[1], m.captures[2], filename);
+            auto bp = nextBraceAndMatchingEndBrace(content, cast(uint)(m.front.ptr - content.ptr));
+            classes ~= ASTClass(m.captures[1], m.captures[2], filename, bp.beginPos,
+                bp.endPos);
         }
     }
 
