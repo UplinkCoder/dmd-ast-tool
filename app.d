@@ -113,8 +113,8 @@ public :
 
 struct Entry
 {
-    uint level; 
     string nodeName;
+    uint level;
     uint idx; ///starts at 1
     // populated after populate was called
     uint parentIdx; /// 1 based indexing
@@ -127,15 +127,7 @@ Entry[] entries;
 
 string[5] importantParents = ["Dsymbol", "Type", "Expression", "Statement", "TemplateDeclaration"];
 uint[5] importantParentIdxs;
-/*ClassDeclaration[] extractClassDeclarations(string code)
-{
- // looks like:
- // extern (C++) final class DollarExp : IdentifierExp
- // OR 
- // extern (C++) abstract class Expression : RootObject
- // OR
- // extern (C++) class IdentifierExp : Expression
-}*/
+
 Entry[] parseDmdClassList(string input) pure
 {
     Entry[] _entries;
@@ -150,19 +142,56 @@ Entry[] parseDmdClassList(string input) pure
         auto nameString = line.split(' ')[0];
 
         if (nameString.length)
-            _entries ~= Entry(level, nameString, cast(uint) i);
+            _entries ~= Entry(nameString, level, cast(uint) i);
     }
 
     return _entries;
 }
 
+Entry[] coalateClasses(const ASTClass[] allClasses)
+{
+
+    Entry[] result = [Entry("RootObject", 1, 0)];
+    // First assign the Root-Object Descenands;
+
+    uint lastTry;
+    uint currentLevel = 1;
+    uint colateCount;
+    uint oldCoalateCount = 1;
+
+    for (;;)
+    {
+        auto c = allClasses[lastTry++];
+        foreach (i, e; result)
+        {
+            if (e.level == currentLevel && c.parentName == e.nodeName)
+            {
+                result ~= Entry(c.className, currentLevel + 1,
+                    cast(uint) result.length, cast(uint) i + 1);
+                break;
+            }
+        }
+        if (lastTry == allClasses.length)
+        {
+            if (currentLevel++ < 10)
+                lastTry = 1;
+            else
+                break;
+        }
+    }
+
+    return result;
+}
+
 void main()
 {
-//    writeln(gatherClasses());
+    auto allClasses = gatherClasses();
+    writeln(rod(allClasses).map!(c => c.className));
+    writeln(coalateClasses(allClasses).map!(c => c.nodeName));
     string ch_txt = readText("ch.txt");
     entries = parseDmdClassList(ch_txt);
     populate(&entries);
-    printVisitors();
+    //printVisitors();
     writeln("The DMD class hierachy has ", entries.length, " members");
 
     uint typeCount[6];
@@ -261,34 +290,43 @@ struct ASTClass
 
 ASTClass[] gatherClasses()
 {
-     auto r = regex(`extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
+    auto r = regex(
+        `extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
 
-     ASTClass[] classes;
-     foreach(string filename;dirEntries("src/", "*.d", SpanMode.shallow))
-     {
-         foreach(m; matchAll(readText(filename), r).filter!(m => m.captures[2] != "Visitor" && m.captures[2] != "StoppableVisitor"))
-         {
-             classes ~= ASTClass(m.captures[1], m.captures[2], filename);
-         }    
-     }
+    ASTClass[] classes;
+    foreach (string filename; dirEntries("src/", "*.d", SpanMode.shallow))
+    {
+        foreach (m; matchAll(readText(filename), r).filter!(
+                m => m.captures[2] != "Visitor" && m.captures[2] != "StoppableVisitor"))
+        {
+            classes ~= ASTClass(m.captures[1], m.captures[2], filename);
+        }
+    }
 
-     return classes;
+    return classes;
 }
 
+const(ASTClass[]) rod(const ASTClass[] allClasses)
+{
+    return allClasses.filter!(c => c.parentName == "RootObject").array;
+}
 
 void printVisitors()
 {
-     auto r = regex(`extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
+    auto r = regex(
+        `extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
 
-     ASTClass[] classes;
-     foreach(string filename;dirEntries("src/", "*.d", SpanMode.shallow))
-     {
-         foreach(m; matchAll(readText(filename), r).filter!(m => m.captures[2] == "Visitor" || m.captures[2] == "StoppableVisitor"))
-         {
-             import std.stdio;
-             writeln(m.captures[1]);
-         }    
-     }
+    ASTClass[] classes;
+    foreach (string filename; dirEntries("src/", "*.d", SpanMode.shallow))
+    {
+        foreach (m; matchAll(readText(filename), r).filter!(
+                m => m.captures[2] == "Visitor" || m.captures[2] == "StoppableVisitor"))
+        {
+            import std.stdio;
 
-     return ;
+            writeln(m.captures[1]);
+        }
+    }
+
+    return;
 }
