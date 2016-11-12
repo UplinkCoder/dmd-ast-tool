@@ -4,6 +4,7 @@ import std.range;
 import std.string;
 import std.file;
 import std.math;
+import std.regex;
 
 string visitor_boilerplate = `
 module ddmd.asttypename;
@@ -134,8 +135,6 @@ uint[5] importantParentIdxs;
  // extern (C++) abstract class Expression : RootObject
  // OR
  // extern (C++) class IdentifierExp : Expression
-    
-
 }*/
 Entry[] parseDmdClassList(string input) pure
 {
@@ -159,10 +158,11 @@ Entry[] parseDmdClassList(string input) pure
 
 void main()
 {
+//    writeln(gatherClasses());
     string ch_txt = readText("ch.txt");
     entries = parseDmdClassList(ch_txt);
     populate(&entries);
-
+    printVisitors();
     writeln("The DMD class hierachy has ", entries.length, " members");
 
     uint typeCount[6];
@@ -251,9 +251,44 @@ uint countTabs(const string line) pure
     return numTabs;
 }
 
-void GatherDefinitionLocations()
+struct ASTClass
 {
-    // we need to match the regex "extern (C++)" * "class" \s some_name_in_list *
+    string className;
+    string parentName;
 
-    //	extern(C++) 
+    string fileName;
+}
+
+ASTClass[] gatherClasses()
+{
+     auto r = regex(`extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
+
+     ASTClass[] classes;
+     foreach(string filename;dirEntries("src/", "*.d", SpanMode.shallow))
+     {
+         foreach(m; matchAll(readText(filename), r).filter!(m => m.captures[2] != "Visitor" && m.captures[2] != "StoppableVisitor"))
+         {
+             classes ~= ASTClass(m.captures[1], m.captures[2], filename);
+         }    
+     }
+
+     return classes;
+}
+
+
+void printVisitors()
+{
+     auto r = regex(`extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
+
+     ASTClass[] classes;
+     foreach(string filename;dirEntries("src/", "*.d", SpanMode.shallow))
+     {
+         foreach(m; matchAll(readText(filename), r).filter!(m => m.captures[2] == "Visitor" || m.captures[2] == "StoppableVisitor"))
+         {
+             import std.stdio;
+             writeln(m.captures[1]);
+         }    
+     }
+
+     return ;
 }
