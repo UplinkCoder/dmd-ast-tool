@@ -204,6 +204,11 @@ void main()
     printVisitors();
     writeln(allClasses.length);
 
+/*	foreach(c;allClasses)
+	{
+		c.addToConstructor("\tif(auto _s = \""~ c.className ~ "\" in _classStats) { (*_s)++; } \n\telse { _classStats[\"" ~ c.className ~ "\"] = 1; }");
+	}
+*/
     //   writeln(rod(allClasses).map!(c => c.className));
     writeln(coalateClasses(allClasses).length /*.map!(c => c.nodeName)*/ );
     string ch_txt = readText("ch.txt");
@@ -270,6 +275,11 @@ struct BracePosition
 {
     uint beginPos;
     uint endPos;
+
+	T opCast(T:bool)()
+	{
+		return endPos != 0;
+	}
 }
 
 BracePosition nextBraceAndMatchingEndBrace(const string text, const uint startPos) pure @safe nothrow
@@ -349,6 +359,22 @@ ASTClass[] gatherClasses()
 const(ASTClass[]) rod(const ASTClass[] allClasses)
 {
     return allClasses.filter!(c => c.parentName == "RootObject").array;
+}
+
+void addToConstructor(ASTClass _class, string code)
+{
+		auto fileText = readText(_class.fileName);
+		auto def = fileText[_class.startDefinitionPos .. _class.endDefinitionPos];
+	auto r = regex(`extern \(D\) this`);
+	auto mf = matchFirst(def, r);
+	if (mf.empty)
+	{
+		writeln("no match on",def);
+		return ;
+	}
+	auto constructorBounds = nextBraceAndMatchingEndBrace(fileText, cast(uint)(mf.front.ptr - fileText.ptr));
+		auto wFile = fileText[0 .. constructorBounds.beginPos + 1] ~ "\n" ~ code ~ "\n" ~ fileText[constructorBounds.beginPos + 2 .. $];
+	std.file.write(_class.fileName, wFile);
 }
 
 void printVisitors()
