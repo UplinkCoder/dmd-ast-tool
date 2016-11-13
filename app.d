@@ -118,7 +118,7 @@ struct Entry
     uint idx;
 
     uint parentIdx; /// 1 based indexing
-    uint numberOfChildren;
+    uint[] childIdxs;
 
     uint enumIdx;
 }
@@ -142,7 +142,7 @@ Entry[] parseDmdClassList(string input) pure
         auto nameString = line.split(' ')[0];
 
         if (nameString.length)
-            _entries ~= Entry(nameString, level, cast(uint) i);
+            _entries ~= Entry(nameString, level, cast(uint) i + 1);
     }
 
     foreach (entryIdx; 0 .. _entries.length)
@@ -154,7 +154,7 @@ Entry[] parseDmdClassList(string input) pure
                 if (entryLevel > entry.level)
                 {
                     _entries[entryIdx].parentIdx = cast(uint) i + 1;
-                    ++_entries[i].numberOfChildren;
+                    _entries[i].childIdxs ~= cast(uint) entryIdx + 1;
                     break;
                 }
             }
@@ -179,8 +179,10 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
         {
             if (e.level == currentLevel && c.parentName == e.nodeName)
             {
-                result ~= Entry(c.className, currentLevel + 1,
-                    cast(uint) result.length, cast(uint) i + 1);
+                auto parentIdx = cast(uint) i + 1;
+                auto childIdx = cast(uint) result.length + 1;
+                result ~= Entry(c.className, currentLevel + 1, childIdx, parentIdx);
+                result[i].childIdxs ~= childIdx;
                 break;
             }
         }
