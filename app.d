@@ -201,8 +201,10 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
 void main()
 {
     auto allClasses = gatherClasses();
-    printVisitors();
-    writeln(allClasses.length);
+    auto coalatedClasses = coalateClasses(allClasses);
+    writeln(genDot(coalatedClasses));
+//    printVisitors();
+//    writeln(allClasses.length);
 
 /*	foreach(c;allClasses)
 	{
@@ -210,8 +212,7 @@ void main()
 	}
 */
     //   writeln(rod(allClasses).map!(c => c.className));
-    writeln(coalateClasses(allClasses).length /*.map!(c => c.nodeName)*/ );
-    string ch_txt = readText("ch.txt");
+/*    string ch_txt = readText("ch.txt");
     entries = parseDmdClassList(ch_txt);
     writeln("The DMD class hierachy has ", entries.length, " members");
 
@@ -223,7 +224,7 @@ void main()
     }
     //writeln(genTypeStringVisitor());
 
-    //   writeln(typeCount/*[].map!(i => cast(int)(log2(i)+0.5))*/);
+    //   writeln(typeCount[].map!(i => cast(int)(log2(i)+0.5)));
     uint pidx;
     foreach (i, entry; entries)
     {
@@ -249,7 +250,7 @@ void main()
 
         }
 
-    }
+    }*/
 }
 
 string genTypeStringVisitor()
@@ -369,7 +370,7 @@ void addToConstructor(ASTClass _class, string code)
 	auto mf = matchFirst(def, r);
 	if (mf.empty)
 	{
-		writeln("no match on",def);
+		writeln("no match on ", _class.className);
 		return ;
 	}
 	auto constructorBounds = nextBraceAndMatchingEndBrace(fileText, cast(uint)(mf.front.ptr - fileText.ptr));
@@ -395,4 +396,16 @@ void printVisitors()
     }
 
     return;
+}
+
+string genDot(Entry[] coalatedClasses)
+{
+    string result = "digraph AST {\n";
+    foreach(cc;coalatedClasses[12 .. $])
+    // starts at 12 to skip the direct children of root-object.
+    {
+        result ~= "\t" ~  coalatedClasses[cc.parentIdx - 1].nodeName ~ " -> " ~  cc.nodeName ~ "\n";
+    }
+    result ~= "}";
+    return result;
 }
