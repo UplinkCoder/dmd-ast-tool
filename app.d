@@ -203,16 +203,16 @@ void main()
     auto allClasses = gatherClasses();
     auto coalatedClasses = coalateClasses(allClasses);
     writeln(genDot(coalatedClasses));
-//    printVisitors();
-//    writeln(allClasses.length);
+    //    printVisitors();
+    //    writeln(allClasses.length);
 
-/*	foreach(c;allClasses)
+    /*	foreach(c;allClasses)
 	{
 		c.addToConstructor("\tif(auto _s = \""~ c.className ~ "\" in _classStats) { (*_s)++; } \n\telse { _classStats[\"" ~ c.className ~ "\"] = 1; }");
 	}
 */
     //   writeln(rod(allClasses).map!(c => c.className));
-/*    string ch_txt = readText("ch.txt");
+    /*    string ch_txt = readText("ch.txt");
     entries = parseDmdClassList(ch_txt);
     writeln("The DMD class hierachy has ", entries.length, " members");
 
@@ -277,10 +277,10 @@ struct BracePosition
     uint beginPos;
     uint endPos;
 
-	T opCast(T:bool)()
-	{
-		return endPos != 0;
-	}
+    T opCast(T : bool)()
+    {
+        return endPos != 0;
+    }
 }
 
 BracePosition nextBraceAndMatchingEndBrace(const string text, const uint startPos) pure @safe nothrow
@@ -364,18 +364,20 @@ const(ASTClass[]) rod(const ASTClass[] allClasses)
 
 void addToConstructor(ASTClass _class, string code)
 {
-		auto fileText = readText(_class.fileName);
-		auto def = fileText[_class.startDefinitionPos .. _class.endDefinitionPos];
-	auto r = regex(`extern \(D\) this`);
-	auto mf = matchFirst(def, r);
-	if (mf.empty)
-	{
-		writeln("no match on ", _class.className);
-		return ;
-	}
-	auto constructorBounds = nextBraceAndMatchingEndBrace(fileText, cast(uint)(mf.front.ptr - fileText.ptr));
-		auto wFile = fileText[0 .. constructorBounds.beginPos + 1] ~ "\n" ~ code ~ "\n" ~ fileText[constructorBounds.beginPos + 2 .. $];
-	std.file.write(_class.fileName, wFile);
+    auto fileText = readText(_class.fileName);
+    auto def = fileText[_class.startDefinitionPos .. _class.endDefinitionPos];
+    auto r = regex(`extern \(D\) this`);
+    auto mf = matchFirst(def, r);
+    if (mf.empty)
+    {
+        writeln("no match on ", _class.className);
+        return;
+    }
+    auto constructorBounds = nextBraceAndMatchingEndBrace(fileText,
+        cast(uint)(mf.front.ptr - fileText.ptr));
+    auto wFile = fileText[0 .. constructorBounds.beginPos + 1] ~ "\n" ~ code ~ "\n" ~ fileText[
+        constructorBounds.beginPos + 2 .. $];
+    std.file.write(_class.fileName, wFile);
 }
 
 void printVisitors()
@@ -401,10 +403,9 @@ void printVisitors()
 string genDot(Entry[] coalatedClasses)
 {
     string result = "digraph AST {\n";
-    foreach(cc;coalatedClasses[12 .. $])
-    // starts at 12 to skip the direct children of root-object.
+    foreach (cc; coalatedClasses[12 .. $]) // starts at 12 to skip the direct children of root-object.
     {
-        result ~= "\t" ~  coalatedClasses[cc.parentIdx - 1].nodeName ~ " -> " ~  cc.nodeName ~ "\n";
+        result ~= "\t" ~ coalatedClasses[cc.parentIdx - 1].nodeName ~ " -> " ~ cc.nodeName ~ "\n";
     }
     result ~= "}";
     return result;
