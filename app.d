@@ -38,21 +38,27 @@ import ddmd.doc;
 import ddmd.root.rootobject;
 import ddmd.statement;
 import ddmd.staticassert;
+import ddmd.nspace;
 import ddmd.visitor;
-
 
 string astTypeName(RootObject node)
 {
     switch(node.dyncast())
     {
-        case DYNCAST_IDENTIFIER:
-            return astTypeName(cast(Identifier)node);
+        case DYNCAST_OBJECT:
+            return "RootObject";
+        case DYNCAST_EXPRESSION:
+            return astTypeName(cast(Expression)node);
         case DYNCAST_DSYMBOL:
             return astTypeName(cast(Dsymbol)node);
         case DYNCAST_TYPE:
             return astTypeName(cast(Type)node);
-        case DYNCAST_EXPRESSION:
-            return astTypeName(cast(Expression)node);
+        case DYNCAST_IDENTIFIER:
+            return astTypeName(cast(Identifier)node);
+        case DYNCAST_TUPLE:
+            return astTypeName(cast(Tuple)node);
+        case DYNCAST_PARAMETER:
+            return astTypeName(cast(Parameter)node);
         default : assert(0, "don't know this DYNCAST");
     }
 }
@@ -215,7 +221,8 @@ void main()
     auto coalatedClasses = coalateClasses(allClasses);
     writeln(gen_ch_txt(coalatedClasses));
     //    printVisitors();
-    //    writeln(allClasses.length);
+//        writeln(allClasses.length);
+    writeln(genTypeStringVisitor(coalatedClasses));
 
     /*	foreach(c;allClasses)
 	{
@@ -233,7 +240,6 @@ void main()
         //   if (canFind()) writeln(entry);
         typeCount[entry.level - 1]++;
     }
-    //writeln(genTypeStringVisitor());
 
     //   writeln(typeCount[].map!(i => cast(int)(log2(i)+0.5)));
     uint pidx;
@@ -264,12 +270,12 @@ void main()
     }*/
 }
 
-string genTypeStringVisitor()
+string genTypeStringVisitor(Entry[] _entries)
 {
     string result;
 
     result ~= "\n" ~ (visitor_boilerplate);
-    foreach (entry; entries)
+    foreach (entry; _entries)
     {
         {
             result ~= "\n";
