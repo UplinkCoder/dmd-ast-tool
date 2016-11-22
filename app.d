@@ -222,7 +222,7 @@ void main()
     writeln(gen_ch_txt(coalatedClasses));
     //    printVisitors();
 //        writeln(allClasses.length);
-    writeln(genTypeStringVisitor(coalatedClasses));
+//    writeln(genTypeStringVisitor(coalatedClasses));
 
     /*	foreach(c;allClasses)
 	{
@@ -453,9 +453,8 @@ string gen_ch_txt(const Entry[] coalatedClasses, const uint idx = 0)
 
     result = writeTabs(e.level) ~ e.nodeName ~ "\n";
 
-    auto sortedIdxs = e.childIdxs[].dup.sort!((a,
-        b) => (coalatedClasses[a - 1].childIdxs.length > coalatedClasses[b - 1].childIdxs.length));
-    //   auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (recursiveNumberOfChildren(coalatedClasses, a - 1) > recursiveNumberOfChildren(coalatedClasses, b - 1)));
+    // auto sortedIdxs = e.childIdxs[].dup.sort!((a, b) => (coalatedClasses[a - 1].childIdxs.length > coalatedClasses[b - 1].childIdxs.length));
+       auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (recursiveNumberOfChildren(coalatedClasses, a - 1) > recursiveNumberOfChildren(coalatedClasses, b - 1)));
     //   auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (coalatedClasses[a - 1].nodeName[0] > coalatedClasses[b - 1].nodeName[0]));
 
     foreach (cidx; sortedIdxs)
