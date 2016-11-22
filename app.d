@@ -110,6 +110,15 @@ extern(C++) final class AstTypeNameVisitor : Visitor
 public :
     string typeName;
 `;
+struct ASTClass
+{
+    string className;
+    string parentName;
+
+    string fileName;
+    uint startDefinitionPos;
+    uint endDefinitionPos;
+}
 
 struct Entry
 {
@@ -118,6 +127,7 @@ struct Entry
     uint idx;
 
     uint parentIdx; /// 1 based indexing
+    const(ASTClass)* _class;
     uint[] childIdxs;
 
     uint enumIdx;
@@ -181,7 +191,8 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
             {
                 auto parentIdx = cast(uint) i + 1;
                 auto childIdx = cast(uint) result.length + 1;
-                result ~= Entry(c.className, currentLevel + 1, childIdx, parentIdx);
+                result ~= Entry(c.className, currentLevel + 1, childIdx,
+                    parentIdx, &allClasses[lastTry - 1]);
                 result[i].childIdxs ~= childIdx;
                 break;
             }
@@ -202,7 +213,7 @@ void main()
 {
     auto allClasses = gatherClasses();
     auto coalatedClasses = coalateClasses(allClasses);
-    writeln(genDot(coalatedClasses));
+    writeln(gen_ch_txt(coalatedClasses));
     //    printVisitors();
     //    writeln(allClasses.length);
 
@@ -326,16 +337,6 @@ uint countTabs(const string line) pure
     return numTabs;
 }
 
-struct ASTClass
-{
-    string className;
-    string parentName;
-
-    string fileName;
-    uint startDefinitionPos;
-    uint endDefinitionPos;
-}
-
 ASTClass[] gatherClasses()
 {
     auto r = regex(
@@ -403,10 +404,58 @@ void printVisitors()
 string genDot(Entry[] coalatedClasses)
 {
     string result = "digraph AST {\n";
+
     foreach (cc; coalatedClasses[12 .. $]) // starts at 12 to skip the direct children of root-object.
     {
         result ~= "\t" ~ coalatedClasses[cc.parentIdx - 1].nodeName ~ " -> " ~ cc.nodeName ~ "\n";
     }
     result ~= "}";
+
+    return result;
+}
+
+string writeTabs(const uint n) pure
+{
+    string result;
+
+    foreach (_; 0 .. n)
+    {
+        result ~= "\t";
+    }
+
+    return result;
+}
+
+uint recursiveNumberOfChildren(const Entry[] coalatedClasses, const uint idx)
+{
+    uint result;
+    auto e = coalatedClasses[idx];
+    result = cast(uint) e.childIdxs.length;
+
+    foreach (cidx; e.childIdxs)
+    {
+        result += recursiveNumberOfChildren(coalatedClasses, cidx - 1);
+    }
+
+    return result;
+}
+
+string gen_ch_txt(const Entry[] coalatedClasses, const uint idx = 0)
+{
+    string result;
+    auto e = coalatedClasses[idx];
+
+    result = writeTabs(e.level) ~ e.nodeName ~ "\n";
+
+    auto sortedIdxs = e.childIdxs[].dup.sort!((a,
+        b) => (coalatedClasses[a - 1].childIdxs.length > coalatedClasses[b - 1].childIdxs.length));
+    //   auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (recursiveNumberOfChildren(coalatedClasses, a - 1) > recursiveNumberOfChildren(coalatedClasses, b - 1)));
+    //   auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (coalatedClasses[a - 1].nodeName[0] > coalatedClasses[b - 1].nodeName[0]));
+
+    foreach (cidx; sortedIdxs)
+    {
+        result ~= gen_ch_txt(coalatedClasses, cidx - 1);
+    }
+
     return result;
 }
