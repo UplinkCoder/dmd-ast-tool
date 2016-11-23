@@ -179,7 +179,7 @@ Entry[] parseDmdClassList(string input) pure
     return _entries;
 }
 
-Entry[] coalateClasses(const ASTClass[] allClasses)
+Entry[] correlateClasses(const ASTClass[] allClasses)
 {
 
     Entry[] result = [Entry("RootObject", 1, 0)];
@@ -217,12 +217,15 @@ Entry[] coalateClasses(const ASTClass[] allClasses)
 
 void main()
 {
-    auto allClasses = gatherClasses();
-    auto coalatedClasses = coalateClasses(allClasses);
-    writeln(gen_ch_txt(coalatedClasses));
+//    auto allClasses = gatherClasses();
+//    auto correlatedClasses = correlateClasses(allClasses);
+    string ch_txt = readText("ch.txt");
+    entries = parseDmdClassList(ch_txt);
+    writeln(genWikiSection(entries));
+//    writeln(gen_ch_txt(correlatedClasses));
     //    printVisitors();
 //        writeln(allClasses.length);
-//    writeln(genTypeStringVisitor(coalatedClasses));
+//    writeln(genTypeStringVisitor(correlatedClasses));
 
     /*	foreach(c;allClasses)
 	{
@@ -230,9 +233,7 @@ void main()
 	}
 */
     //   writeln(rod(allClasses).map!(c => c.className));
-    /*    string ch_txt = readText("ch.txt");
-    entries = parseDmdClassList(ch_txt);
-    writeln("The DMD class hierachy has ", entries.length, " members");
+/*    writeln("The DMD class hierachy has ", entries.length, " members");
 
     uint typeCount[6];
     foreach (i, entry; entries)
@@ -407,13 +408,13 @@ void printVisitors()
     return;
 }
 
-string genDot(Entry[] coalatedClasses)
+string genDot(Entry[] correlatedClasses)
 {
     string result = "digraph AST {\n";
 
-    foreach (cc; coalatedClasses[12 .. $]) // starts at 12 to skip the direct children of root-object.
+    foreach (cc; correlatedClasses[12 .. $]) // starts at 12 to skip the direct children of root-object.
     {
-        result ~= "\t" ~ coalatedClasses[cc.parentIdx - 1].nodeName ~ " -> " ~ cc.nodeName ~ "\n";
+        result ~= "\t" ~ correlatedClasses[cc.parentIdx - 1].nodeName ~ " -> " ~ cc.nodeName ~ "\n";
     }
     result ~= "}";
 
@@ -432,34 +433,61 @@ string writeTabs(const uint n) pure
     return result;
 }
 
-uint recursiveNumberOfChildren(const Entry[] coalatedClasses, const uint idx)
+string writeStars(const uint n) pure
 {
-    uint result;
-    auto e = coalatedClasses[idx];
-    result = cast(uint) e.childIdxs.length;
+    string result;
 
-    foreach (cidx; e.childIdxs)
+    foreach (_; 0 .. n)
     {
-        result += recursiveNumberOfChildren(coalatedClasses, cidx - 1);
+        result ~= "*";
     }
 
     return result;
 }
 
-string gen_ch_txt(const Entry[] coalatedClasses, const uint idx = 0)
+uint recursiveNumberOfChildren(const Entry[] correlatedClasses, const uint idx)
+{
+    uint result;
+    auto e = correlatedClasses[idx];
+    result = cast(uint) e.childIdxs.length;
+
+    foreach (cidx; e.childIdxs)
+    {
+        result += recursiveNumberOfChildren(correlatedClasses, cidx - 1);
+    }
+
+    return result;
+}
+
+string genWikiSection(const Entry[] _entries, const uint idx = 0)
 {
     string result;
-    auto e = coalatedClasses[idx];
+    auto e = _entries[idx];
+
+    result = writeStars(e.level) ~ " " ~ e.nodeName ~ "\n";
+    foreach (cidx; e.childIdxs)
+    {
+        result ~= genWikiSection(_entries, cidx - 1);
+        if (idx == 0) result ~= "\n";
+    }
+   
+    return result;
+}
+
+string gen_ch_txt(const Entry[] correlatedClasses, const uint idx = 0)
+{
+    string result;
+    auto e = correlatedClasses[idx];
 
     result = writeTabs(e.level) ~ e.nodeName ~ "\n";
 
-    // auto sortedIdxs = e.childIdxs[].dup.sort!((a, b) => (coalatedClasses[a - 1].childIdxs.length > coalatedClasses[b - 1].childIdxs.length));
-       auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (recursiveNumberOfChildren(coalatedClasses, a - 1) > recursiveNumberOfChildren(coalatedClasses, b - 1)));
-    //   auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (coalatedClasses[a - 1].nodeName[0] > coalatedClasses[b - 1].nodeName[0]));
+    // auto sortedIdxs = e.childIdxs[].dup.sort!((a, b) => (correlatedClasses[a - 1].childIdxs.length > correlatedClasses[b - 1].childIdxs.length));
+       auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (recursiveNumberOfChildren(correlatedClasses, a - 1) > recursiveNumberOfChildren(correlatedClasses, b - 1)));
+    //   auto sortedIdxs = e.childIdxs[].dup.sort!((a,b) => (correlatedClasses[a - 1].nodeName[0] > correlatedClasses[b - 1].nodeName[0]));
 
     foreach (cidx; sortedIdxs)
     {
-        result ~= gen_ch_txt(coalatedClasses, cidx - 1);
+        result ~= gen_ch_txt(correlatedClasses, cidx - 1);
     }
 
     return result;
