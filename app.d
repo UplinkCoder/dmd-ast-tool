@@ -43,7 +43,7 @@ import ddmd.visitor;
 
 string astTypeName(RootObject node)
 {
-    switch(node.dyncast())
+    final switch(node.dyncast())
     {
         case DYNCAST_OBJECT:
             return "RootObject";
@@ -59,7 +59,8 @@ string astTypeName(RootObject node)
             return astTypeName(cast(Tuple)node);
         case DYNCAST_PARAMETER:
             return astTypeName(cast(Parameter)node);
-        default : assert(0, "don't know this DYNCAST");
+        case DYNCAST_STATEMENT:
+            return astTypeName(cast(Statement)node);
     }
 }
 
@@ -78,6 +79,13 @@ string astTypeName(Expression node)
 }
 
 string astTypeName(Type node)
+{
+    scope tsv = new AstTypeNameVisitor;
+    node.accept(tsv);
+    return tsv.typeName;
+}
+
+string astTypeName(Statement node)
 {
     scope tsv = new AstTypeNameVisitor;
     node.accept(tsv);
@@ -116,6 +124,7 @@ extern(C++) final class AstTypeNameVisitor : Visitor
 public :
     string typeName;
 `;
+
 struct ASTClass
 {
     string className;
@@ -178,7 +187,14 @@ Entry[] parseDmdClassList(string input) pure
 
     return _entries;
 }
+/* TODO implement a find-dmd
+string findDmdSrc()
+{
+// try ../dmd/src
+// then ../../dmd/src
 
+}
+*/
 Entry[] correlateClasses(const ASTClass[] allClasses)
 {
 
@@ -217,32 +233,36 @@ Entry[] correlateClasses(const ASTClass[] allClasses)
 
 void main()
 {
-//    auto allClasses = gatherClasses();
-//    auto correlatedClasses = correlateClasses(allClasses);
+    auto allClasses = gatherClasses();
+    auto correlatedClasses = correlateClasses(allClasses);
+    writeln(genTypeStringVisitor(correlatedClasses));
+
+/*
     string ch_txt = readText("ch.txt");
     entries = parseDmdClassList(ch_txt);
     writeln(genWikiSection(entries));
-//    writeln(gen_ch_txt(correlatedClasses));
-    //    printVisitors();
-//        writeln(allClasses.length);
-//    writeln(genTypeStringVisitor(correlatedClasses));
+    writeln(gen_ch_txt(correlatedClasses));
 
-    /*	foreach(c;allClasses)
+
+    printVisitors();
+        writeln(allClasses.length);
+
+	foreach(c;allClasses)
 	{
 		c.addToConstructor("\tif(auto _s = \""~ c.className ~ "\" in _classStats) { (*_s)++; } \n\telse { _classStats[\"" ~ c.className ~ "\"] = 1; }");
 	}
-*/
-    //   writeln(rod(allClasses).map!(c => c.className));
-/*    writeln("The DMD class hierachy has ", entries.length, " members");
+
+       writeln(rod(allClasses).map!(c => c.className));
+      writeln("The DMD class hierachy has ", entries.length, " members");
 
     uint typeCount[6];
     foreach (i, entry; entries)
     {
-        //   if (canFind()) writeln(entry);
+        if (canFind()) writeln(entry);
         typeCount[entry.level - 1]++;
     }
 
-    //   writeln(typeCount[].map!(i => cast(int)(log2(i)+0.5)));
+    writeln(typeCount[].map!(i => cast(int)(log2(i)+0.5)));
     uint pidx;
     foreach (i, entry; entries)
     {
@@ -268,7 +288,8 @@ void main()
 
         }
 
-    }*/
+    }
+*/
 }
 
 string genTypeStringVisitor(Entry[] _entries)
@@ -278,6 +299,9 @@ string genTypeStringVisitor(Entry[] _entries)
     result ~= "\n" ~ (visitor_boilerplate);
     foreach (entry; _entries)
     {
+        //FIXME hack as long as TypeDeduced and CTFEExp are without
+        // visitor-support don't generate visit methods for them
+        if (entry.nodeName != "TypeDeduced" && entry.nodeName != "CTFEExp")
         {
             result ~= "\n";
             result ~= "\n" ~ ("    override void visit(" ~ entry.nodeName ~ " node)");
@@ -286,6 +310,8 @@ string genTypeStringVisitor(Entry[] _entries)
             result ~= "\n" ~ ("    }");
         }
     }
+
+    result ~= "\n}\n";
 
     return result;
 }
@@ -388,24 +414,23 @@ void addToConstructor(ASTClass _class, string code)
     std.file.write(_class.fileName, wFile);
 }
 
-void printVisitors()
+string[] visitorNames()
 {
+    string[] result;
+
     auto r = regex(
         `extern \(C\+\+\) (?:final class|abstract class|class) ([a-zA-Z]*) \: ([a-zA-Z]*)`);
 
-    ASTClass[] classes;
     foreach (string filename; dirEntries("src/", "*.d", SpanMode.shallow))
     {
         foreach (m; matchAll(readText(filename), r).filter!(
                 m => m.captures[2] == "Visitor" || m.captures[2] == "StoppableVisitor"))
         {
-            import std.stdio;
-
-            writeln(m.captures[1]);
+            result ~= m.captures[1];
         }
     }
 
-    return;
+    return result;
 }
 
 string genDot(Entry[] correlatedClasses)
